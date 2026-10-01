@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jeu de Voiture</title>
+  <style>
+    :root {
+      --bg: #2d2d2d;
+      --panel: #1e1e1e;
+      --car: #111111;
+      --obstacle: #c00000;
+      --text: #ffffff;
+      --accent: #ff4d4d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      font-family: Arial, sans-serif;
+      color: var(--text);
+    }
+
+    .game-wrap {
+      text-align: center;
+    }
+
+    canvas {
+      display: block;
+      background: #444;
+      border: 3px solid #111;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    .hud {
+      margin-bottom: 10px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrap">
+    <div class="hud" id="score">Score : 0</div>
+    <canvas id="game" width="400" height="600"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    let score = 0;
+    let bestScore = 0;
+    let gameOver = false;
+    let lastTime = 0;
+
+    const car = {
+      width: 50,
+      height: 80,
+      x: WIDTH / 2 - 25,
+      y: HEIGHT - 100,
+      speed: 6
+    };
+
+    let obstacle = {
+      width: 50,
+      height: 80,
+      x: randomBetween(0, WIDTH - 50),
+      y: -80,
+      speed: 5
+    };
+
+    const keys = {
+      left: false,
+      right: false
+    };
+
+    function randomBetween(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function resetObstacle() {
+      obstacle.x = randomBetween(0, WIDTH - obstacle.width);
+      obstacle.y = -obstacle.height;
+      score += 1;
+      obstacle.speed += 0.2;
+      scoreEl.textContent = "Score : " + score;
+    }
+
+    function drawCar() {
+      ctx.fillStyle = "#111111";
+      ctx.fillRect(car.x, car.y, car.width, car.height);
+    }
+
+    function drawObstacle() {
+      ctx.fillStyle = "#c00000";
+      ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    }
+
+    function drawScore() {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score : " + score, 10, 25);
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = "#ff4d4d";
+      ctx.font = "bold 38px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", WIDTH / 2, HEIGHT / 2 - 10);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "22px Arial";
+      ctx.fillText("Score : " + score, WIDTH / 2, HEIGHT / 2 + 30);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "18px Arial";
+      ctx.fillText("Appuie sur Entrée pour rejouer", WIDTH / 2, HEIGHT / 2 + 70);
+
+      ctx.textAlign = "left";
+    }
+
+    function resetGame() {
+      score = 0;
+      scoreEl.textContent = "Score : 0";
+      car.x = WIDTH / 2 - car.width / 2;
+      obstacle.x = randomBetween(0, WIDTH - obstacle.width);
+      obstacle.y = -obstacle.height;
+      obstacle.speed = 5;
+      gameOver = false;
+      lastTime = 0;
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key.toLowerCase() === "q") keys.left = true;
+      if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keys.right = true;
+
+      if (gameOver && e.key === "Enter") {
+        resetGame();
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft" || e.key.toLowerCase() === "q") keys.left = false;
+      if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keys.right = false;
+    });
+
+    function update(dt) {
+      if (gameOver) return;
+
+      if (keys.left && car.x > 0) {
+        car.x -= car.speed;
+      }
+      if (keys.right && car.x < WIDTH - car.width) {
+        car.x += car.speed;
+      }
+
+      obstacle.y += obstacle.speed * dt * 60 / 1000;
+
+      if (obstacle.y > HEIGHT) {
+        resetObstacle();
+      }
+
+      const carRect = {
+        x: car.x,
+        y: car.y,
+        width: car.width,
+        height: car.height
+      };
+
+      const obstacleRect = {
+        x: obstacle.x,
+        y: obstacle.y,
+        width: obstacle.width,
+        height: obstacle.height
+      };
+
+      const collides =
+        carRect.x < obstacleRect.x + obstacleRect.width &&
+        carRect.x + carRect.width > obstacleRect.x &&
+        carRect.y < obstacleRect.y + obstacleRect.height &&
+        carRect.y + carRect.height > obstacleRect.y;
+
+      if (collides) {
+        gameOver = true;
+        bestScore = Math.max(bestScore, score);
+      }
+    }
+
+    function loop(timestamp) {
+      const dt = timestamp - lastTime;
+      lastTime = timestamp;
+
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      update(dt);
+
+      drawCar();
+      drawObstacle();
+      drawScore();
+
+      if (gameOver) {
+        drawGameOver();
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    resetGame();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
